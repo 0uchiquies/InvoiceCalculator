@@ -1,0 +1,244 @@
+import React, { useMemo, useState } from "react";
+
+/**
+ * Invoice Calculator (RU)
+ * Логика (сводно по последним правилам пользователя):
+ * 1) Тариф T% считается ОБРАТНЫМ процентом: amountWithTariff = S / (1 - T).
+ * 2) SWIFT-добавка применяется ЕСЛИ исходный инвойс < $10k по кросс-курсу ЦБ; 
+ *    добавляется ПОСЛЕ тарифа и полностью относится к «комиссии казахов».
+ *    Правило суммы SWIFT: USD-инвойс → +$100; EUR-инвойс → +€100; другая валюта → +$100 (конвертировать в валюту инвойса по кросс-курсу ЦБ).
+ * 3) Курс конвертации = Курс ЦБ / (1 - pConv), где pConv — надбавка за конвертацию (в долях).
+ * 4) Итог для клиента в валюте = amountWithTariff + swiftFeeInInvoiceCCY.
+ *    Итог для клиента в рублях = итог(в валюте) × Курс конвертации (округлять до сотых ТОЛЬКО в финале).
+ * 5) Комиссия «казахов» (в валюте) = S * 0.035 / (1 - 0.035)  + swiftFeeInInvoiceCCY.
+ * 6) Наша комиссия (в валюте) = [S * T / (1 - T)] - [S * 0.035 / (1 - 0.035)]. SWIFT не является нашей прибылью.
+ */
+
+const number = (v: any) => (Number.isFinite(+v) ? +v : 0);
+const toFixed2 = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : "0.00");
+
+// Коды валют, поддерживаемых селектором
+const CCYS = ["USD", "EUR", "CNY", "OTHER"] as const;
+
+type CCY = typeof CCYS[number];
+
+export default function InvoiceCalculator() {
+  // Вводы
+  const [amount, setAmount] = useState<string>("4915"); // сумма инвойса
+  const [ccy, setCcy] = useState<CCY>("EUR");
+  const [tariffPct, setTariffPct] = useState<string>("5"); // T, %
+  const [convPct, setConvPct] = useState<string>("3"); // надбавка к курсу, % (обратным счетом)
+
+  // Курсы ЦБ для кросс-курса и конвертации в ₽
+  const [rateUSD, setRateUSD] = useState<string>("79.7796");
+  const [rateEUR, setRateEUR] = useState<string>("92.8800");
+  const [rateCNY, setRateCNY] = useState<string>("11.0665");
+  const [rateOther, setRateOther] = useState<string>("1"); // если OTHER — пользователь задаст вручную
+
+  const S = number(amount);
+  const T = number(tariffPct) / 100; // доли
+  const pConv = number(convPct) / 100; // доли
+
+  // Курс ЦБ выбранной валюты
+  const kCB: number = useMemo(() => {
+    switch (ccy) {
+      case "USD":
+        return number(rateUSD);
+      case "EUR":
+        return number(rateEUR);
+      case "CNY":
+        return number(rateCNY);
+      case "OTHER":
+      default:
+        return number(rateOther);
+    }
+  }, [ccy, rateUSD, rateEUR, rateCNY, rateOther]);
+
+  // Курс конвертации (обратный процент)
+  const kConv = useMemo(() => (kCB > 0 ? kCB / (1 - pConv) : 0), [kCB, pConv]);
+
+  // USD эквивалент исходного инвойса (по кросс-курсу ЦБ, БЕЗ конвертационной надбавки)
+  const sUsdEq = useMemo(() => {
+    const usd = number(rateUSD) || 1; // защита от деления на 0
+    return usd > 0 ? (S * kCB) / usd : 0;
+  }, [S, kCB, rateUSD]);
+
+  // Нужно ли применять SWIFT (порог 10k USD)
+  const needSwift = sUsdEq > 0 && sUsdEq < 10000;
+
+  // SWIFT fee в валюте инвойса (после тарифа, отнесено к «казахам»)
+  const swiftFeeInInvoice = useMemo(() => {
+    if (!needSwift) return 0;
+    if (ccy === "USD") return 100;
+    if (ccy === "EUR") return 100;
+    // Прочие валюты — 100 USD, конвертируем по кросс-курсу ЦБ: 100 * (USD→RUB) / (CCY→RUB)
+    const usd = number(rateUSD) || 0;
+    if (usd <= 0 || kCB <= 0) return 0;
+    return (100 * usd) / kCB;
+  }, [needSwift, ccy, rateUSD, kCB]);
+
+  // Сумма с тарифом (обратный процент)
+  const amountWithTariff = useMemo(() => (1 - T > 0 ? S / (1 - T) : 0), [S, T]);
+
+  // Итог в валюте: после тарифа + SWIFT
+  const totalInCcy = amountWithTariff + swiftFeeInInvoice;
+
+  // Итог в рублях
+  const totalInRub = totalInCcy * kConv;
+
+  // Комиссии
+  const kzBase = (S * 0.035) / (1 - 0.035); // «казахи» без SWIFT, по обратному проценту от исходного инвойса
+  const kzInCcy = kzBase + swiftFeeInInvoice; // «казахи» включают SWIFT
+  const ourInCcy = (S * T) / (1 - T) - kzBase; // наша прибыль; SWIFT не включается
+
+  const kzInRub = kzInCcy * kConv;
+  const ourInRub = ourInCcy * kConv;
+
+  // Валидационные заметки
+  const warnTariff = T >= 0.5 || T < 0; // странные значения тарифа
+  const warnConv = pConv >= 0.3 || pConv < 0; // слишком большая надбавка к курсу
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 flex items-start justify-center">
+      <div className="w-full max-w-4xl grid gap-6">
+        <header className="flex items-center justify-between">
+          <h1 className="text-2xl md:text-3xl font-semibold">Калькулятор: инвойс → клиент, комиссии, SWIFT</h1>
+        </header>
+
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-3 p-4 rounded-2xl bg-slate-900 shadow">
+            <div className="grid gap-2">
+              <label className="text-sm text-slate-300">Сумма инвойса</label>
+              <input
+                className="px-3 py-2 rounded-xl bg-slate-800 outline-none focus:ring-2 ring-indigo-500"
+                type="number"
+                min={0}
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm text-slate-300">Валюта</label>
+              <select
+                className="px-3 py-2 rounded-xl bg-slate-800 outline-none focus:ring-2 ring-indigo-500"
+                value={ccy}
+                onChange={(e) => setCcy(e.target.value as CCY)}
+              >
+                {CCYS.map((x) => (
+                  <option key={x} value={x}>{x}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-2">
+                <label className="text-sm text-slate-300">Тариф, % (обратн.)</label>
+                <input
+                  className="px-3 py-2 rounded-xl bg-slate-800 outline-none focus:ring-2 ring-indigo-500"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={tariffPct}
+                  onChange={(e) => setTariffPct(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <label className="text-sm text-slate-300">Конвертация к курсу, % (обратн.)</label>
+                <input
+                  className="px-3 py-2 rounded-xl bg-slate-800 outline-none focus:ring-2 ring-indigo-500"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={convPct}
+                  onChange={(e) => setConvPct(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <span className="text-sm text-slate-300">Курсы ЦБ (на дату оплаты)</span>
+              <div className="grid md:grid-cols-2 gap-2">
+                <label className="text-xs text-slate-400">USD → ₽
+                  <input className="mt-1 w-full px-3 py-2 rounded-xl bg-slate-800 outline-none focus:ring-2 ring-indigo-500" type="number" step="0.0001" value={rateUSD} onChange={(e)=>setRateUSD(e.target.value)} />
+                </label>
+                {ccy !== "USD" && (
+                  <label className="text-xs text-slate-400">{ccy} → ₽
+                    <input className="mt-1 w-full px-3 py-2 rounded-xl bg-slate-800 outline-none focus:ring-2 ring-indigo-500" type="number" step="0.0001" value={kCB} onChange={(e)=>{
+                      const v=e.target.value; if(ccy==="EUR") setRateEUR(v); else if(ccy==="CNY") setRateCNY(v); else setRateOther(v);
+                    }} />
+                  </label>
+                )}
+                {ccy === "USD" && (
+                  <label className="text-xs text-slate-400">EUR → ₽
+                    <input className="mt-1 w-full px-3 py-2 rounded-xl bg-slate-800 outline-none focus:ring-2 ring-indigo-500" type="number" step="0.0001" value={rateEUR} onChange={(e)=>setRateEUR(e.target.value)} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {(warnTariff || warnConv) && (
+              <div className="text-amber-300 text-xs">
+                Проверьте параметры: {warnTariff && "тариф необычный"}{warnTariff && warnConv && ", "}{warnConv && "надбавка к курсу велика"}.
+              </div>
+            )}
+
+            <div className="text-xs text-slate-400">
+              SWIFT: добавляется ПОСЛЕ тарифа и целиком относится к «казахам». Применяется, если эквивалент исходного инвойса &lt; $10 000.
+            </div>
+          </div>
+
+          <div className="grid gap-3 p-4 rounded-2xl bg-slate-900 shadow">
+            <h2 className="text-lg font-semibold">Результат</h2>
+            <div className="grid gap-2">
+              <Row label="Нужно ли SWIFT?" value={needSwift ? "Да" : "Нет"} />
+              <Row label={`SWIFT, в ${ccy}`} value={`${toFixed2(swiftFeeInInvoice)} ${ccy}`} />
+              <Row label={`Сумма с тарифом, ${ccy}`} value={`${toFixed2(amountWithTariff)} ${ccy}`} />
+              <Row label={`Итог для клиента, ${ccy}`} value={`${toFixed2(totalInCcy)} ${ccy}`} emphasize />
+              <Row label="Итог для клиента, ₽" value={`${toFixed2(totalInRub)} ₽`} emphasize />
+            </div>
+
+            <div className="h-px bg-slate-800 my-2" />
+
+            <div className="grid gap-1">
+              <h3 className="text-sm text-slate-300">Комиссии</h3>
+              <Row label={`Комиссия казахов, ${ccy}`} value={`${toFixed2(kzInCcy)} ${ccy}`} />
+              <Row label={`Комиссия казахов, ₽`} value={`${toFixed2(kzInRub)} ₽`} />
+              <Row label={`Наша комиссия, ${ccy}`} value={`${toFixed2(ourInCcy)} ${ccy}`} />
+              <Row label={`Наша комиссия, ₽`} value={`${toFixed2(ourInRub)} ₽`} />
+            </div>
+
+            <div className="h-px bg-slate-800 my-2" />
+
+            <div className="grid gap-1 text-xs text-slate-400">
+              <div>Курс ЦБ выбранной валюты: {kCB}</div>
+              <div>Курс конвертации (с надбавкой): {toFixed2(kConv)}</div>
+              <div>USD-эквивалент исходного инвойса: {toFixed2(sUsdEq)} $</div>
+            </div>
+          </div>
+        </div>
+
+        <footer className="text-xs text-slate-400">
+          Формулы:
+          <ul className="list-disc pl-5 mt-1 space-y-1">
+            <li>С тарифом: S/(1−T), где T в долях.</li>
+            <li>SWIFT: USD/EUR = 100 в их валюте; прочие = 100 USD в валюту инвойса (по ЦБ).</li>
+            <li>Курс конвертации: Kcb/(1−pConv).</li>
+            <li>«Казахи» (валюта): S·0.035/(1−0.035) + SWIFT.</li>
+            <li>Наша (валюта): S·T/(1−T) − S·0.035/(1−0.035).</li>
+          </ul>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, emphasize=false }: { label: string; value: string; emphasize?: boolean }){
+  return (
+    <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${emphasize ? "bg-slate-800" : ""}`}>
+      <span className="text-sm text-slate-300">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
