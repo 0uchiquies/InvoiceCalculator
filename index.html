@@ -17,7 +17,6 @@
     .wrap{max-width:1100px;margin:32px auto;padding:16px}
     .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px}
     @media (max-width:900px){.grid{grid-template-columns:1fr;}}
-
     .card{background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));
           border:1px solid rgba(124,156,255,.15);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
     h1{font-size:28px;margin:0 0 14px}
@@ -25,23 +24,18 @@
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
     .row+.row,.row-3+.row,.row+.row-3{margin-top:12px}
-
     label{font-size:13px;color:var(--sub);display:block;margin-bottom:6px}
     input,select{width:100%;padding:12px 14px;border-radius:12px;background:var(--muted);border:1px solid rgba(255,255,255,.06);
                  color:var(--text);outline:none;transition:.2s}
     input:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,156,255,.25)}
-
     .hr{height:1px;background:rgba(255,255,255,.06);margin:14px 0}
-
     .item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:12px}
     .item.em{background:rgba(124,156,255,.08)}
     .key{font-size:14px;color:var(--sub)}
     .val{font-variant-numeric:tabular-nums;font-weight:600}
-
     .tag{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:rgba(69,212,131,.12);
          color:var(--ok);font-size:12px;border:1px solid rgba(69,212,131,.35)}
     .warn{background:rgba(255,209,102,.12);color:var(--warn);border-color:rgba(255,209,102,.4)}
-
     .btn{display:inline-flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--acc);color:#0b1220;font-weight:600;border:none;box-shadow:var(--shadow);cursor:pointer}
     .btn:disabled{opacity:.6;cursor:not-allowed}
     .toolbar{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
@@ -78,7 +72,6 @@
             <input id="conv" type="number" min="0" step="0.01" value="3" />
           </div>
         </div>
-
         <div class="row-3">
           <div>
             <label>Курс ЦБ USD</label>
@@ -93,24 +86,34 @@
             <input id="rateCNY" type="number" step="0.0001" value="11.0665" />
           </div>
         </div>
+        <div class="row-3">
+          <div>
+            <label id="convLblUSD">USD +0%</label>
+            <input id="convRateUSD" type="number" step="0.0001" readonly />
+          </div>
+          <div>
+            <label id="convLblEUR">EUR +0%</label>
+            <input id="convRateEUR" type="number" step="0.0001" readonly />
+          </div>
+          <div>
+            <label id="convLblCNY">CNY +0%</label>
+            <input id="convRateCNY" type="number" step="0.0001" readonly />
+          </div>
+        </div>
         <div class="toolbar">
           <button id="refreshBtn" class="btn" type="button">Обновить курсы ЦБ</button>
           <span id="rateStamp" class="stamp">Последнее обнов: —</span>
         </div>
       </section>
-
       <section class="card">
         <h2>Результат</h2>
         <div id="swiftTag" class="tag" style="display:none">SWIFT потребуется</div>
         <div id="noSwiftTag" class="tag warn" style="display:none">SWIFT не применяется</div>
-
         <div class="hr"></div>
-
         <div class="item"><div class="key">Сумма с тарифом</div><div class="val" id="amountWithTariff">—</div></div>
         <div class="item"><div class="key">SWIFT добавка</div><div class="val" id="swiftFee">—</div></div>
         <div class="item em"><div class="key">Итог для клиента</div><div class="val" id="totalCcy">—</div></div>
         <div class="item em"><div class="key">Итог для клиента (₽)</div><div class="val" id="totalRub">—</div></div>
-
         <div class="hr"></div>
         <h2>Комиссии</h2>
         <div class="item"><div class="key">Комиссия казахов</div><div class="val" id="kzCcy">—</div></div>
@@ -120,20 +123,16 @@
       </section>
     </div>
   </div>
-
   <script>
     const $ = (id) => document.getElementById(id);
-
-    // формат с пробелами по 3 цифры + 2 знака после запятой (ГОСТоподобно)
     function formatNumberWithSpaces(num){
       if(!isFinite(num)) return '0.00';
       const parts = num.toFixed(2).split('.');
-      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); // неразрывный пробел
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
       return parts.join('.');
     }
     const sym = (ccy) => ccy==='USD'?'$':(ccy==='EUR'?'€':(ccy==='CNY'?'¥':''));
     const money = (v, ccy) => `${formatNumberWithSpaces(v)}${ccy?`\u00A0${sym(ccy)}`:''}`;
-
     const amount = $('amount');
     const ccy = $('ccy');
     const tariff = $('tariff');
@@ -141,23 +140,24 @@
     const rateUSD = $('rateUSD');
     const rateEUR = $('rateEUR');
     const rateCNY = $('rateCNY');
-
+    const convRateUSD = $('convRateUSD');
+    const convRateEUR = $('convRateEUR');
+    const convRateCNY = $('convRateCNY');
+    const convLblUSD = $('convLblUSD');
+    const convLblEUR = $('convLblEUR');
+    const convLblCNY = $('convLblCNY');
     const swiftTag = $('swiftTag');
     const noSwiftTag = $('noSwiftTag');
-
     const amountWithTariff = $('amountWithTariff');
     const swiftFee = $('swiftFee');
     const totalCcy = $('totalCcy');
     const totalRub = $('totalRub');
-
     const kzCcy = $('kzCcy');
     const kzRub = $('kzRub');
     const ourCcy = $('ourCcy');
     const ourRub = $('ourRub');
-
     const rateStamp = $('rateStamp');
     const refreshBtn = $('refreshBtn');
-
     function currentCBRate(){
       const cur = ccy.value;
       if(cur==='USD') return +rateUSD.value || 0;
@@ -165,45 +165,38 @@
       if(cur==='CNY') return +rateCNY.value || 0;
       return 0;
     }
-
     function recalc(){
       const S = +amount.value || 0;
       const T = (+tariff.value||0)/100;
       const pConv = (+conv.value||0)/100;
-
-      // CB rates
+      const convPct = (+conv.value||0);
       const usd = +rateUSD.value || 0;
+      const eur = +rateEUR.value || 0;
+      const cny = +rateCNY.value || 0;
       const kCB = currentCBRate();
-
-      // Conversion rate with markup (reverse)
-      const kConv = kCB>0 ? kCB/(1-pConv) : 0;
-
-      // USD equivalent of original invoice (cross via CB rates)
+      const denom = (1-pConv);
+      const kConv = (kCB>0 && denom>0) ? kCB/denom : 0;
+      const convUsdRate = (usd>0 && denom>0) ? usd/denom : 0;
+      const convEurRate = (eur>0 && denom>0) ? eur/denom : 0;
+      const convCnyRate = (cny>0 && denom>0) ? cny/denom : 0;
+      if(convLblUSD) convLblUSD.textContent = `USD +${convPct}%`;
+      if(convLblEUR) convLblEUR.textContent = `EUR +${convPct}%`;
+      if(convLblCNY) convLblCNY.textContent = `CNY +${convPct}%`;
       const sUsdEq = (usd>0 && kCB>0) ? (S*kCB)/usd : 0;
       const needSwift = sUsdEq>0 && sUsdEq<10000;
-
-      // Amount with tariff (reverse)
       const amtWithTariff = (1-T>0) ? S/(1-T) : 0;
-
-      // SWIFT fee in invoice currency (AFTER tariff) and fully to KZ commission
       let swiftInCcy = 0;
       if(needSwift){
         if(ccy.value==='USD' || ccy.value==='EUR') swiftInCcy = 100;
-        else swiftInCcy = (usd>0 && kCB>0) ? (100*usd)/kCB : 0; // для прочих (у нас нет OTHER)
+        else swiftInCcy = (usd>0 && kCB>0) ? (100*usd)/kCB : 0;
       }
-
       const totalInCcyVal = amtWithTariff + swiftInCcy;
       const totalInRubVal = totalInCcyVal * kConv;
-
-      // Commissions
       const kzBase = (S*0.035)/(1-0.035);
-      const kzInCcyVal = kzBase + swiftInCcy; // SWIFT → казахи
-      const ourInCcyVal = (S*T)/(1-T) - kzBase; // наша прибыль; SWIFT не включается
-
+      const kzInCcyVal = kzBase + swiftInCcy;
+      const ourInCcyVal = (S*T)/(1-T) - kzBase;
       const kzInRubVal = kzInCcyVal * kConv;
       const ourInRubVal = ourInCcyVal * kConv;
-
-      // Render (везде символ валюты и пробелы по 3)
       amountWithTariff.textContent = money(amtWithTariff, ccy.value);
       swiftFee.textContent = money(swiftInCcy, ccy.value);
       totalCcy.textContent = money(totalInCcyVal, ccy.value);
@@ -212,12 +205,12 @@
       kzRub.textContent = money(kzInRubVal, 'RUB').replace('RUB','₽');
       ourCcy.textContent = money(ourInCcyVal, ccy.value);
       ourRub.textContent = money(ourInRubVal, 'RUB').replace('RUB','₽');
-
+      if(convRateUSD) convRateUSD.value = convUsdRate.toFixed(4);
+      if(convRateEUR) convRateEUR.value = convEurRate.toFixed(4);
+      if(convRateCNY) convRateCNY.value = convCnyRate.toFixed(4);
       swiftTag.style.display = needSwift ? 'inline-flex' : 'none';
       noSwiftTag.style.display = needSwift ? 'none' : 'inline-flex';
     }
-
-    // загрузка курсов ЦБ (USD/EUR/CNY)
     async function fetchCBRates(){
       try{
         if(rateStamp) rateStamp.textContent = 'Загрузка курсов ЦБ...';
@@ -236,16 +229,11 @@
         if(refreshBtn) refreshBtn.disabled = false;
       }
     }
-
     if(refreshBtn) refreshBtn.addEventListener('click', fetchCBRates);
-
-    // Events
     [amount, ccy, tariff, conv, rateUSD, rateEUR, rateCNY].forEach(el=>{
       el.addEventListener('input', recalc);
       el.addEventListener('change', recalc);
     });
-
-    // Init
     fetchCBRates();
     recalc();
   </script>
