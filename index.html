@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Инвойс калькулятор · тариф, казахи, SWIFT</title>
+  <title>Калькулятор инвойса</title>
   <style>
     :root{
       --bg:#0b1220;--panel:#121a2b;--muted:#1a2336;--text:#e6ecff;--sub:#a8b3cf;--acc:#7c9cff;--ok:#45d483;--warn:#ffd166;
@@ -31,7 +31,6 @@
                  color:var(--text);outline:none;transition:.2s}
     input:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,156,255,.25)}
 
-    .note{font-size:12px;color:#9fb0d6;margin-top:6px}
     .hr{height:1px;background:rgba(255,255,255,.06);margin:14px 0}
 
     .item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:12px}
@@ -51,7 +50,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Калькулятор инвойса · тариф, казахи, SWIFT</h1>
+    <h1>Калькулятор инвойса</h1>
     <div class="grid">
       <section class="card">
         <h2>Входные данные</h2>
@@ -66,7 +65,6 @@
               <option>USD</option>
               <option selected>EUR</option>
               <option>CNY</option>
-              <option>OTHER</option>
             </select>
           </div>
         </div>
@@ -87,15 +85,14 @@
             <input id="rateUSD" type="number" step="0.0001" value="79.7796" />
           </div>
           <div>
-            <label id="ccyLabel">Курс ЦБ EUR → ₽</label>
-            <input id="rateCCY" type="number" step="0.0001" value="92.8800" />
+            <label>Курс ЦБ EUR → ₽</label>
+            <input id="rateEUR" type="number" step="0.0001" value="92.8800" />
           </div>
           <div>
-            <label>Курс ЦБ OTHER → ₽ (если выбрано OTHER)</label>
-            <input id="rateOther" type="number" step="0.0001" value="1" />
+            <label>Курс ЦБ CNY → ₽</label>
+            <input id="rateCNY" type="number" step="0.0001" value="11.0665" />
           </div>
         </div>
-        <div class="note">SWIFT добавляется <b>после тарифа</b> и целиком относится к «казахам». Применяется, если исходный инвойс &lt; $10 000 по кросс‑курсу ЦБ. USD/EUR — +100 в их валюте, прочие валюты — +100 $ (пересчитывается по ЦБ).</div>
         <div class="toolbar">
           <button id="refreshBtn" class="btn" type="button">Обновить курсы ЦБ</button>
           <span id="rateStamp" class="stamp">Курсы ЦБ: —</span>
@@ -109,39 +106,42 @@
 
         <div class="hr"></div>
 
-        <div class="item"><div class="key">Сумма с тарифом (<span id="ccyA"></span>)</div><div class="val" id="amountWithTariff">—</div></div>
-        <div class="item"><div class="key">SWIFT добавка (<span id="ccyB"></span>)</div><div class="val" id="swiftFee">—</div></div>
-        <div class="item em"><div class="key">Итог для клиента (<span id="ccyC"></span>)</div><div class="val" id="totalCcy">—</div></div>
+        <div class="item"><div class="key">Сумма с тарифом</div><div class="val" id="amountWithTariff">—</div></div>
+        <div class="item"><div class="key">SWIFT добавка</div><div class="val" id="swiftFee">—</div></div>
+        <div class="item em"><div class="key">Итог для клиента</div><div class="val" id="totalCcy">—</div></div>
         <div class="item em"><div class="key">Итог для клиента (₽)</div><div class="val" id="totalRub">—</div></div>
 
         <div class="hr"></div>
         <h2>Комиссии</h2>
-        <div class="item"><div class="key">Комиссия казахов (<span id="ccyD"></span>)</div><div class="val" id="kzCcy">—</div></div>
+        <div class="item"><div class="key">Комиссия казахов</div><div class="val" id="kzCcy">—</div></div>
         <div class="item"><div class="key">Комиссия казахов (₽)</div><div class="val" id="kzRub">—</div></div>
-        <div class="item"><div class="key">Наша комиссия (<span id="ccyE"></span>)</div><div class="val" id="ourCcy">—</div></div>
+        <div class="item"><div class="key">Наша комиссия</div><div class="val" id="ourCcy">—</div></div>
         <div class="item"><div class="key">Наша комиссия (₽)</div><div class="val" id="ourRub">—</div></div>
-
-        <div class="hr"></div>
-        <footer>
-          Формулы: <code>S/(1−T)</code>, <code>Kcb/(1−pConv)</code>, «Казахи»: <code>S·0.035/(1−0.035)+SWIFT</code>, «Наша»: <code>S·T/(1−T)−S·0.035/(1−0.035)</code>.
-        </footer>
       </section>
     </div>
   </div>
 
   <script>
     const $ = (id) => document.getElementById(id);
-    const fmt2 = (x) => (isFinite(x) ? x.toFixed(2) : '0.00');
+
+    // формат с пробелами по 3 цифры + 2 знака после запятой (ГОСТоподобно)
+    function formatNumberWithSpaces(num){
+      if(!isFinite(num)) return '0.00';
+      const parts = num.toFixed(2).split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); // неразрывный пробел
+      return parts.join('.');
+    }
+    const sym = (ccy) => ccy==='USD'?'$':(ccy==='EUR'?'€':(ccy==='CNY'?'¥':''));
+    const money = (v, ccy) => `${formatNumberWithSpaces(v)}${ccy?`\u00A0${sym(ccy)}`:''}`;
 
     const amount = $('amount');
     const ccy = $('ccy');
     const tariff = $('tariff');
     const conv = $('conv');
     const rateUSD = $('rateUSD');
-    const rateCCY = $('rateCCY');
-    const rateOther = $('rateOther');
+    const rateEUR = $('rateEUR');
+    const rateCNY = $('rateCNY');
 
-    const ccyLabel = $('ccyLabel');
     const swiftTag = $('swiftTag');
     const noSwiftTag = $('noSwiftTag');
 
@@ -155,30 +155,15 @@
     const ourCcy = $('ourCcy');
     const ourRub = $('ourRub');
 
-    const ccyA=$('ccyA'), ccyB=$('ccyB'), ccyC=$('ccyC'), ccyD=$('ccyD'), ccyE=$('ccyE');
-
     const rateStamp = $('rateStamp');
     const refreshBtn = $('refreshBtn');
-
-    // локальные значения ЦБ для EUR/CNY (отображаются в поле "Курс ЦБ … → ₽")
-    let eurCB = 92.8800;
-    let cnyCB = 11.0665;
 
     function currentCBRate(){
       const cur = ccy.value;
       if(cur==='USD') return +rateUSD.value || 0;
-      if(cur==='EUR') return eurCB;
-      if(cur==='CNY') return cnyCB;
-      if(cur==='OTHER') return +rateOther.value || 0;
+      if(cur==='EUR') return +rateEUR.value || 0;
+      if(cur==='CNY') return +rateCNY.value || 0;
       return 0;
-    }
-
-    function updateLabels(){
-      const cur = ccy.value;
-      ccyLabel.textContent = `Курс ЦБ ${cur} → ₽`;
-      ccyA.textContent = cur; ccyB.textContent = cur; ccyC.textContent = cur; ccyD.textContent = cur; ccyE.textContent = cur;
-      if(cur==='EUR') rateCCY.value = eurCB.toFixed(4);
-      if(cur==='CNY') rateCCY.value = cnyCB.toFixed(4);
     }
 
     function recalc(){
@@ -204,36 +189,33 @@
       let swiftInCcy = 0;
       if(needSwift){
         if(ccy.value==='USD' || ccy.value==='EUR') swiftInCcy = 100;
-        else swiftInCcy = (usd>0 && kCB>0) ? (100*usd)/kCB : 0; // other = 100 USD in invoice ccy
+        else swiftInCcy = (usd>0 && kCB>0) ? (100*usd)/kCB : 0; // для прочих (у нас нет OTHER)
       }
 
-      const totalInCcy = amtWithTariff + swiftInCcy;
-      const totalInRub = totalInCcy * kConv;
+      const totalInCcyVal = amtWithTariff + swiftInCcy;
+      const totalInRubVal = totalInCcyVal * kConv;
 
       // Commissions
       const kzBase = (S*0.035)/(1-0.035);
       const kzInCcyVal = kzBase + swiftInCcy; // SWIFT → казахи
-      const ourInCcyVal = (S*T)/(1-T) - kzBase; // Наша прибыль; SWIFT не включается
+      const ourInCcyVal = (S*T)/(1-T) - kzBase; // наша прибыль; SWIFT не включается
 
       const kzInRubVal = kzInCcyVal * kConv;
       const ourInRubVal = ourInCcyVal * kConv;
 
-      // Render
-      amountWithTariff.textContent = fmt2(amtWithTariff);
-      swiftFee.textContent = fmt2(swiftInCcy);
-      totalCcy.textContent = fmt2(totalInCcy);
-      totalRub.textContent = fmt2(totalInRub) + ' ₽';
-      kzCcy.textContent = fmt2(kzInCcyVal);
-      kzRub.textContent = fmt2(kzInRubVal) + ' ₽';
-      ourCcy.textContent = fmt2(ourInCcyVal);
-      ourRub.textContent = fmt2(ourInRubVal) + ' ₽';
+      // Render (везде символ валюты и пробелы по 3)
+      amountWithTariff.textContent = money(amtWithTariff, ccy.value);
+      swiftFee.textContent = money(swiftInCcy, ccy.value);
+      totalCcy.textContent = money(totalInCcyVal, ccy.value);
+      totalRub.textContent = money(totalInRubVal, 'RUB').replace('RUB','₽');
+      kzCcy.textContent = money(kzInCcyVal, ccy.value);
+      kzRub.textContent = money(kzInRubVal, 'RUB').replace('RUB','₽');
+      ourCcy.textContent = money(ourInCcyVal, ccy.value);
+      ourRub.textContent = money(ourInRubVal, 'RUB').replace('RUB','₽');
 
       swiftTag.style.display = needSwift ? 'inline-flex' : 'none';
       noSwiftTag.style.display = needSwift ? 'none' : 'inline-flex';
     }
-
-    // синхронизация ручного ввода EUR/CNY
-    rateCCY.addEventListener('input', ()=>{ const v=+rateCCY.value||0; if(ccy.value==='EUR') eurCB=v; else if(ccy.value==='CNY') cnyCB=v; recalc(); });
 
     // загрузка курсов ЦБ (USD/EUR/CNY)
     async function fetchCBRates(){
@@ -243,9 +225,8 @@
         const res = await fetch('https://www.cbr-xml-daily.ru/daily_json.js');
         const data = await res.json();
         if(data?.Valute?.USD?.Value){ rateUSD.value = Number(data.Valute.USD.Value).toFixed(4); }
-        if(data?.Valute?.EUR?.Value){ eurCB = Number(data.Valute.EUR.Value); }
-        if(data?.Valute?.CNY?.Value){ cnyCB = Number(data.Valute.CNY.Value); }
-        updateLabels();
+        if(data?.Valute?.EUR?.Value){ rateEUR.value = Number(data.Valute.EUR.Value).toFixed(4); }
+        if(data?.Valute?.CNY?.Value){ rateCNY.value = Number(data.Valute.CNY.Value).toFixed(4); }
         recalc();
         const dt = new Date(data?.Date || Date.now());
         if(rateStamp) rateStamp.textContent = 'Курсы ЦБ на ' + dt.toLocaleDateString('ru-RU');
@@ -259,13 +240,12 @@
     if(refreshBtn) refreshBtn.addEventListener('click', fetchCBRates);
 
     // Events
-    [amount, ccy, tariff, conv, rateUSD, rateCCY, rateOther].forEach(el=>{
-      el.addEventListener('input', ()=>{ if(el===ccy) updateLabels(); recalc(); });
-      el.addEventListener('change', ()=>{ if(el===ccy) updateLabels(); recalc(); });
+    [amount, ccy, tariff, conv, rateUSD, rateEUR, rateCNY].forEach(el=>{
+      el.addEventListener('input', recalc);
+      el.addEventListener('change', recalc);
     });
 
     // Init
-    updateLabels();
     fetchCBRates();
     recalc();
   </script>
