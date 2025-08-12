@@ -116,8 +116,9 @@
         <div class="item em"><div class="key">Итог для клиента (₽)</div><div class="val" id="totalRub">—</div></div>
         <div class="hr"></div>
         <h2>Комиссии</h2>
-        <div class="item"><div class="key">Комиссия казахов</div><div class="val" id="kzCcy">—</div></div>
-        <div class="item"><div class="key">Комиссия казахов (₽)</div><div class="val" id="kzRub">—</div></div>
+        <div class="item"><div class="key">Общая комиссия</div><div class="val" id="totalCommissionCcy">—</div></div>
+        <div class="item"><div class="key">Себестоимость</div><div class="val" id="kzCcy">—</div></div>
+        <div class="item"><div class="key">Себестоимость (₽)</div><div class="val" id="kzRub">—</div></div>
         <div class="item"><div class="key">Наша комиссия</div><div class="val" id="ourCcy">—</div></div>
         <div class="item"><div class="key">Наша комиссия (₽)</div><div class="val" id="ourRub">—</div></div>
       </section>
@@ -132,7 +133,7 @@
       return parts.join('.');
     }
     const sym = (ccy) => ccy==='USD'?'$':(ccy==='EUR'?'€':(ccy==='CNY'?'¥':''));
-    const money = (v, ccy) => `${formatNumberWithSpaces(v)}${ccy?`\u00A0${sym(ccy)}`:''}`;
+    const money = (v, ccy) => ccy === 'RUB' ? `${formatNumberWithSpaces(v)}\u00A0₽` : `${sym(ccy)}\u00A0${formatNumberWithSpaces(v)}`;
     const amount = $('amount');
     const ccy = $('ccy');
     const tariff = $('tariff');
@@ -152,6 +153,7 @@
     const swiftFee = $('swiftFee');
     const totalCcy = $('totalCcy');
     const totalRub = $('totalRub');
+    const totalCommissionCcy = $('totalCommissionCcy');
     const kzCcy = $('kzCcy');
     const kzRub = $('kzRub');
     const ourCcy = $('ourCcy');
@@ -195,16 +197,18 @@
       const kzBase = (S*0.035)/(1-0.035);
       const kzInCcyVal = kzBase + swiftInCcy;
       const ourInCcyVal = (S*T)/(1-T) - kzBase;
+      const totalCommissionInCcyVal = kzInCcyVal + ourInCcyVal;
       const kzInRubVal = kzInCcyVal * kConv;
       const ourInRubVal = ourInCcyVal * kConv;
       amountWithTariff.textContent = money(amtWithTariff, ccy.value);
       swiftFee.textContent = money(swiftInCcy, ccy.value);
       totalCcy.textContent = money(totalInCcyVal, ccy.value);
-      totalRub.textContent = money(totalInRubVal, 'RUB').replace('RUB','₽');
+      totalRub.textContent = money(totalInRubVal, 'RUB');
+      totalCommissionCcy.textContent = money(totalCommissionInCcyVal, ccy.value);
       kzCcy.textContent = money(kzInCcyVal, ccy.value);
-      kzRub.textContent = money(kzInRubVal, 'RUB').replace('RUB','₽');
+      kzRub.textContent = money(kzInRubVal, 'RUB');
       ourCcy.textContent = money(ourInCcyVal, ccy.value);
-      ourRub.textContent = money(ourInRubVal, 'RUB').replace('RUB','₽');
+      ourRub.textContent = money(ourInRubVal, 'RUB');
       if(convRateUSD) convRateUSD.value = convUsdRate.toFixed(4);
       if(convRateEUR) convRateEUR.value = convEurRate.toFixed(4);
       if(convRateCNY) convRateCNY.value = convCnyRate.toFixed(4);
