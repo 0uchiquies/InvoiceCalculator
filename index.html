@@ -248,7 +248,7 @@
         if (!data?.Valute) throw new Error('Неверная структура ответа API');
         if(data.Valute.USD?.Value) rateUSD.value = Number(data.Valute.USD.Value).toFixed(4);
         if(data.Valute.EUR?.Value) rateEUR.value = Number(data.Valute.EUR.Value).toFixed(4);
-        if(data.Valute.CNY?.Value) rateCNY.value = Number(data.Valute.CNY.Value/10).toFixed(4);
+        if(data.Valute.CNY?.Value) rateCNY.value = Number(data.Valute.CNY.Value).toFixed(4);
         const dt = new Date(data?.Date || Date.now());
         if(rateStamp) rateStamp.textContent = 'Курсы ЦБ на ' + dt.toLocaleDateString('ru-RU');
         if(refreshBtn) {
