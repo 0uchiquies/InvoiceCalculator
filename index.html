@@ -31,14 +31,17 @@
     input,select,textarea{width:100%;padding:12px 12px;border-radius:12px;background:var(--muted);border:1px solid rgba(255,255,255,.06);
                  color:var(--text);outline:none;transition:.2s}
       select#ccy {
-      padding-right: 30px; /* Пространство для кастомной стрелки */
-      -webkit-appearance: none; /* Отключаем стандартную стрелку в WebKit-браузерах */
-      -moz-appearance: none; /* Отключаем стандартную стрелку в Firefox */
-      appearance: none; /* Отключаем стандартную стрелку */
-      background-image: url('main/arrow.png'); /* Путь к вашему изображению стрелки */
-      background-repeat: no-repeat;
-      background-position: right 10px center; /* Позиция стрелки: 10px от правого края, по центру по вертикали */
-      background-size: 24px 24px; /* Размер изображения стрелки (настройте под ваше изображение) */
+      /* базовые стили остаются */
+  padding-right: 40px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+
+  /* один шортхэнд: цвет + картинка + повтор + позиция + размер */
+  background:
+    var(--muted)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path fill='%23a8b3cf' d='M7 9l5 5 5-5z'/></svg>")
+    no-repeat right 12px center / 16px 16px;
     }
     input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,156,255,.25)}
     textarea{height:116px;font-family:inherit}
