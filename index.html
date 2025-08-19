@@ -25,9 +25,8 @@
     .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
     .row+.row{margin-top:12px}
-    .row-3 + .row-3 {
-      margin-top: 12px}
-      .row + .row-3 {margin-top: 28px}
+    .row-3 + .row-3 {margin-top: 12px}
+    .row + .row-3 {margin-top: 28px}
     label{font-size:13px;color:var(--sub);display:block;margin-bottom:6px}
     input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;background:var(--muted);border:1px solid rgba(255,255,255,.06);
                  color:var(--text);outline:none;transition:.2s}
@@ -242,27 +241,30 @@
         if(rateStamp) rateStamp.textContent = 'Загрузка курсов ЦБ...';
         if(refreshBtn) refreshBtn.disabled = true;
         console.log('Fetching exchange rates from CBR...');
-        const res = await fetch('https://www.cbr-xml-daily.ru/daily_json.js');
+        const res = await fetch('https://corsproxy.io/?https://www.cbr-xml-daily.ru/daily_json.js', { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
         const data = await res.json();
         console.log('API Response:', data);
-        if(data?.Valute?.USD?.Value) rateUSD.value = Number(data.Valute.USD.Value).toFixed(4);
-        if(data?.Valute?.EUR?.Value) rateEUR.value = Number(data.Valute.EUR.Value).toFixed(4);
-        if(data?.Valute?.CNY?.Value) rateCNY.value = Number(data.Valute.CNY.Value/10).toFixed(4);
+        if (!data?.Valute) throw new Error('Неверная структура ответа API');
+        if(data.Valute.USD?.Value) rateUSD.value = Number(data.Valute.USD.Value).toFixed(4);
+        if(data.Valute.EUR?.Value) rateEUR.value = Number(data.Valute.EUR.Value).toFixed(4);
+        if(data.Valute.CNY?.Value) rateCNY.value = Number(data.Valute.CNY.Value/10).toFixed(4);
         const dt = new Date(data?.Date || Date.now());
         if(rateStamp) rateStamp.textContent = 'Курсы ЦБ на ' + dt.toLocaleDateString('ru-RU');
+        if(refreshBtn) {
+          refreshBtn.textContent = 'Обновлено';
+          refreshBtn.classList.add('copied');
+          setTimeout(() => {
+            refreshBtn.textContent = 'Обновить курсы ЦБ';
+            refreshBtn.classList.remove('copied');
+          }, 2000);
+        }
         recalc();
       } catch(e) {
         console.error('Error fetching CB rates:', e);
         if(rateStamp) rateStamp.textContent = 'Ошибка загрузки курсов ЦБ: ' + e.message;
       } finally {
         if(refreshBtn) refreshBtn.disabled = false;
-        refreshBtn.textContent = 'Обновлено'; // Изменяем текст кнопки на "Обновлено"
-      refreshBtn.classList.add('copied'); // Добавляем класс для визуального эффекта
-      setTimeout(() => {
-        refreshBtn.textContent = 'Обновить курсы ЦБ'; // Возвращаем исходный текст
-        refreshBtn.classList.remove('copied'); // Убираем класс
-      }, 2000); // Через 2 секунды возвращаем исходное состояние
       }
     }
     if(refreshBtn) {
