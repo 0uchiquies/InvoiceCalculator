@@ -28,13 +28,24 @@
     .row-3 + .row-3 {margin-top: 12px}
     .row + .row-3 {margin-top: 28px}
     label{font-size:13px;color:var(--sub);display:block;margin-bottom:6px}
-    input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;background:var(--muted);border:1px solid rgba(255,255,255,.06);
+    input,select,textarea{width:100%;padding:12px 12px;border-radius:12px;background:var(--muted);border:1px solid rgba(255,255,255,.06);
                  color:var(--text);outline:none;transition:.2s}
+      select#ccy {
+      padding-right: 30px; /* Пространство для кастомной стрелки */
+      -webkit-appearance: none; /* Отключаем стандартную стрелку в WebKit-браузерах */
+      -moz-appearance: none; /* Отключаем стандартную стрелку в Firefox */
+      appearance: none; /* Отключаем стандартную стрелку */
+      background-image: url('arrow.png'); /* Путь к вашему изображению стрелки */
+      background-repeat: no-repeat;
+      background-position: right 10px center; /* Позиция стрелки: 10px от правого края, по центру по вертикали */
+      background-size: 24px 24px; /* Размер изображения стрелки (настройте под ваше изображение) */
+    }
     input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(124,156,255,.25)}
-    textarea{height:140px;font-family:inherit}
-    .hr{height:1px;background:rgba(255,255,255,.06);margin:14px 0}
-    .item{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:12px}
+    textarea{height:116px;font-family:inherit}
+    .hr{height:1px;background:rgba(255,255,255,.06);margin:12px 20px}
+    .item{display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:12px}
     .item.em{background:rgba(124,156,255,.08)}
+    .item.em + .item.em { margin-top: 4px; margin-bottom: 16px; }
     .key{font-size:14px;color:var(--sub)}
     .val{font-variant-numeric:tabular-nums;font-weight:600}
     .tag{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:rgba(69,212,131,.12);
@@ -62,8 +73,8 @@
           <div>
             <label>Валюта</label>
             <select id="ccy">
-              <option>USD</option>
-              <option selected>EUR</option>
+              <option selected>USD</option>
+              <option>EUR</option>
               <option>CNY</option>
             </select>
           </div>
@@ -124,13 +135,16 @@
         <div id="noSwiftTag" class="tag warn" style="display:none">SWIFT не применяется</div>
         <div class="hr"></div>
         <div class="item"><div class="key">Сумма с тарифом</div><div class="val" id="amountWithTariff">—</div></div>
-        <div class="item"><div class="key">SWIFT добавка</div><div class="val" id="swiftFee">—</div></div>
+        <div class="item"><div class="key">SWIFT</div><div class="val" id="swiftFee">—</div></div>
+        <div class="hr"></div>
         <div class="item em"><div class="key">Итог для клиента</div><div class="val" id="totalCcy">—</div></div>
         <div class="item em"><div class="key">Итог для клиента (₽)</div><div class="val" id="totalRub">—</div></div>
+        <div class="hr"></div>
         <h2>Комиссии</h2>
         <div class="item"><div class="key">Общая комиссия</div><div class="val" id="totalCommissionCcy">—</div></div>
         <div class="item"><div class="key">Себестоимость</div><div class="val" id="kzCcy">—</div></div>
         <div class="item"><div class="key">Себестоимость (₽)</div><div class="val" id="kzRub">—</div></div>
+        <div class="hr"></div>
         <div class="item"><div class="key">Наша комиссия</div><div class="val" id="ourCcy">—</div></div>
         <div class="item"><div class="key">Наша комиссия (₽)</div><div class="val" id="ourRub">—</div></div>
       </section>
