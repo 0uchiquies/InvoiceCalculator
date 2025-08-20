@@ -1,25 +1,56 @@
-// api/cbr.js
-export const config = { runtime: 'edge' };
+// api/cbr.js — Node.js serverless (НЕ edge)
+export const config = {
+  runtime: 'nodejs',
+  // можно убрать regions; оставляю как пример:
+  regions: ['arn1', 'fra1']
+};
 
-export default async function handler() {
-  const upstream = 'https://www.cbr-xml-daily.ru/daily_json.js';
+export default async function handler(req, res) {
+  // Разрешим preflight и простые CORS-запросы (полезно при тестах из file://)
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.status(204).end();
+    return;
+  }
 
-  // 1) Тянем у ЦБ без кэша на стороне Vercel
-  const r = await fetch(upstream, {
-    cache: 'no-store'          // важно: отключает серверный кэш Vercel Edge
-  });
+  try {
+    const upstream = 'https://www.cbr-xml-daily.ru/daily_json.js';
 
-  const body = await r.text();
+    const r = await fetch(upstream, {
+      cache: 'no-store',
+      // МАСКИРУЕМСЯ под обычный браузер — это критично против 403
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+          '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json,text/plain,*/*',
+        'Accept-Language': 'ru,en;q=0.9',
+        // реферер — твой прод-домен
+        'Referer': 'https://inv-calc-phi.vercel.app/'
+      }
+    });
 
-  // 2) Отдаём как JSON и запрещаем ЛЮБОЕ кэширование на всех слоях
-  return new Response(body, {
-    status: r.status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
-      'pragma': 'no-cache',
-      'expires': '0',
-      'date': new Date().toUTCString()
-    }
-  });
+    const body = await r.text();
+
+    // CORS: позволяем вызывать откуда угодно (удобно при локальных тестах)
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Полный запрет кэширования на всех уровнях
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Date', new Date().toUTCString());
+
+    res.status(r.status).send(body);
+  } catch (e) {
+    // Понятное сообщение об ошибке
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.status(500).send(JSON.stringify({ error: String(e) }));
+  }
 }
