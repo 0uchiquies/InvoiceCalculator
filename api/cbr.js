@@ -1,8 +1,6 @@
 // api/cbr.js — Node.js serverless (НЕ edge)
 export const config = {
   runtime: 'nodejs',
-  // можно убрать regions; оставляю как пример:
-  regions: ['arn1', 'fra1']
 };
 
 export default async function handler(req, res) {
